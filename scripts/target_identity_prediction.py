@@ -6,7 +6,7 @@ import pickle
 import tensorflow as tf
 
 from hate_measure.nn.classifiers import TargetIdentityClassifierUSE
-from hate_measure.utils import cv_wrapper
+from hate_target.utils import cv_wrapper
 from hate_target import keys
 from tensorflow.keras.optimizers import Adam
 
