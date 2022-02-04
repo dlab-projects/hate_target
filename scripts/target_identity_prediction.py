@@ -73,7 +73,7 @@ callback = tf.keras.callbacks.EarlyStopping(
                       'version': args.use_version,
                       'dropout_rate': args.dropout_rate},
         compile_kwargs={'optimizer': Adam(lr=args.lr, epsilon=args.epsilon),
-                        'loss': 'categorical_crossentropy',
+                        'loss': 'binary_crossentropy',
                         'metrics': ['acc']},
         batch_size=args.batch_size,
         max_epochs=args.max_epochs,
