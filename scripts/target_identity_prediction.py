@@ -89,7 +89,9 @@ callback = tf.keras.callbacks.EarlyStopping(
 
 exp_file = os.path.join(args.save_folder, args.save_name + '.pkl')
 with open(exp_file, 'wb') as results:
-    pickle.dump([n_epochs, train_idxs, test_idxs, test_predictions, test_scores,
+    pickle.dump([x, y,
+                 n_epochs, train_idxs, test_idxs,
+                 test_predictions, test_scores,
                  chance], results)
-model_file = os.path.join(args.save_folder, args.save_name + '_model.h5')
-model_refit.save_weights(model_file)
+model_file = os.path.join(args.save_folder, args.save_name + '_model')
+model_refit.save(model_file)
