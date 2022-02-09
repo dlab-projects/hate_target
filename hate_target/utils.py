@@ -1,8 +1,57 @@
 import numpy as np
-import tensorflow_hub as hub
+import pickle
 
 from sklearn.model_selection import KFold, ShuffleSplit
+from sklearn.metrics import roc_auc_score, average_precision_score
 from tensorflow.keras.optimizers import Adam
+
+
+def analyze_experiment(path, n_groups=8):
+    """Analyze target identity experiment results.
+
+    Parameters
+    ----------
+    path : string
+        The path to the results file.
+    n_groups : int
+        The number of groups in the task.
+
+    Returns
+    -------
+    results : dict
+        The results dictionary.
+    """
+    with open(path, 'rb') as file:
+        _, y, _, _, _, test_predictions, test_scores, chance = \
+            pickle.load(file)
+
+    # Test loss
+    test_loss = test_scores[:, 0]
+    # Test loss on labels
+    test_loss_labels = test_scores[:, 1:(n_groups + 1)]
+    # Test accuracies
+    test_accs = test_scores[:, (n_groups + 1):]
+    # Accuracy over chance
+    acc_over_chance = test_accs / chance
+    # Log-Odds Difference
+    log_odds_diff = np.log(test_accs / (1 - test_accs)) - np.log(chance / (1 - chance))
+    # AUC ROC
+    roc_aucs = np.array(
+        [roc_auc_score(y[i].ravel(), test_predictions[i].ravel())
+         for i in range(n_groups)])
+    pr_aucs = auc_prcs = np.array(
+        [average_precision_score(y[i].ravel(), test_predictions[i].ravel())
+         for i in range(n_groups)])
+
+    results = {
+        'test_loss': test_loss,
+        'test_loss_labels': test_loss_labels,
+        'test_accs': test_accs,
+        'acc_over_chance': acc_over_chance,
+        'log_odds_difference': log_odds_diff,
+        'roc_aucs': roc_aucs,
+        'pr_aucs': pr_aucs}
+    return results
 
 
 def accuracy_by_chance(p_train, p_test):
