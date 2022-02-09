@@ -176,7 +176,7 @@ def cv_wrapper(x, y, model_builder, model_kwargs={}, compile_kwargs={},
     test_scores = []
     # Default compiler arguments
     if compile_kwargs == {}:
-        compile_kwargs['loss'] = 'categorical_crossentropy'
+        compile_kwargs['loss'] = 'binary_crossentropy'
         compile_kwargs['optimizer'] = Adam(0.01)
         compile_kwargs['metrics'] = ['acc']
 
