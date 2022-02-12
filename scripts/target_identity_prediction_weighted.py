@@ -49,7 +49,7 @@ threshold = args.threshold
 data = pd.read_feather(args.data_path)
 comments = data[[comment_id, text_col]].drop_duplicates().sort_values(comment_id)
 # Determine target identities
-counts = data[comment_id].value_counts().sort_index()
+counts = data[comment_id].value_counts().sort_index().values
 agreement = data[[comment_id] + keys.target_groups].groupby(comment_id).agg('mean')
 is_target = (agreement >= threshold).astype('int').reset_index(level=0).merge(right=comments, how='left')
 # Extract data for training models
