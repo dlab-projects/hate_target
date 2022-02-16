@@ -69,14 +69,242 @@ def accuracy_by_chance(p_train, p_test):
     return 2 * p_train * p_test - p_train - p_test + 1
 
 
-def accuracy_by_chance_over_folds(y_true, y_pred, train_idxs):
+def log_odds_difference(accuracy, chance):
+    """Calculates the log-odds difference between an accuracy and chance.
+
+    Parameters
+    ----------
+    accuracy : float
+        The accuracy on the test set.
+    chance : float
+        The chance on the test set.
+    """
+    return np.log(accuracy / (1 - accuracy)) - np.log(chance / (1 - chance))
+
+
+def cv_accuracy_by_chance(y_true, y_pred, train_idxs, test_idxs, threshold=0.5):
+    """Calculates the accuracy by chance over CV folds.
+
+    Parameters
+    ----------
+    y_true : array-like
+        The true labels, with first dimension denoting CV fold and second
+        dimension denoting samples.
+    y_pred : array-like
+        The predicted probabilities of each label, with same dimensions as
+        y_true.
+    train_idxs : list of arrays
+        The training indices for each fold.
+    test_idxs : list of arrays
+        The test indices for each fold.
+    threshold : float
+        The threshold by which to convert predicted probabilities to labels.
+
+    Returns
+    -------
+    accuracy_by_chances : np.ndarray
+        An array with the accuracy by chance on each fold.
+    """
     n_folds = len(train_idxs)
     accuracy_by_chances = np.zeros(n_folds)
 
-    for fold_idx in train_idxs:
-        y_true_train = y_
-        p_train = y_true.mean()
-    p_test = y_
+    for idx, (train_idx, test_idx) in enumerate(zip(train_idxs, test_idxs)):
+        # Obtain train and test samples
+        y_true_train = y_true[train_idx]
+        y_true_test = y_true[test_idx]
+        y_pred_test = (y_pred[test_idx] >= threshold).astype('int')
+        # Calculate chance
+        p_train = y_true_train.mean()
+        p_test = y_true_test.mean()
+        chance = accuracy_by_chance(p_train, p_test)
+        # Calculate accuracy
+        accuracy = np.mean(y_pred_test == y_true_test)
+        # Accuracy over chance
+        accuracy_by_chances[idx] = accuracy / chance
+
+    return accuracy_by_chances
+
+def cv_log_odds_difference(y_true, y_pred, train_idxs, test_idxs, threshold=0.5):
+    """Calculates the log-odds difference over CV folds.
+
+    Parameters
+    ----------
+    y_true : array-like
+        The true labels across all samples.
+    y_pred : array-like
+        The predicted probabilities of each label, with same dimensions as
+        y_true.
+    train_idxs : list of arrays
+        The training indices for each fold.
+    test_idxs : list of arrays
+        The test indices for each fold.
+    threshold : float
+        The threshold by which to convert predicted probabilities to labels.
+
+    Returns
+    -------
+    log_odds_differences : np.ndarray
+        An array with the log-odds difference on each fold.
+    """
+    n_folds = len(train_idxs)
+    log_odds_differences = np.zeros(n_folds)
+
+    for idx, (train_idx, test_idx) in enumerate(zip(train_idxs, test_idxs)):
+        # Obtain train and test samples
+        y_true_train = y_true[train_idx]
+        y_true_test = y_true[test_idx]
+        y_pred_test = (y_pred[test_idx] >= threshold).astype('int')
+        # Calculate chance
+        p_train = y_true_train.mean()
+        p_test = y_true_test.mean()
+        chance = accuracy_by_chance(p_train, p_test)
+        # Calculate accuracy
+        accuracy = np.mean(y_pred_test == y_true_test)
+        # Accuracy over chance
+        log_odds_differences[idx] = log_odds_difference(accuracy, chance)
+
+    return log_odds_differences
+
+def cv_multilabel_accuracy_by_chance(y_true, y_pred, train_idxs, test_idxs, threshold=0.5):
+    """Calculates the accuracy by chance over CV folds and labels.
+
+    Parameters
+    ----------
+    y_true : list of array-like
+        The true labels, as a list of arrays. The list is over labels, and the
+        array is over all samples.
+    y_pred : array-like
+        The predicted probabilities of each label, with same dimensions as
+        y_true.
+    train_idxs : list of arrays
+        The training indices for each fold.
+    test_idxs : list of arrays
+        The test indices for each fold.
+    threshold : float
+        The threshold by which to convert predicted probabilities to labels.
+
+    Returns
+    -------
+    accuracy_by_chances : np.ndarray
+        An array with the accuracy by chance on each fold (first dimension)
+        and label (second dimension).
+    """
+    n_labels = len(y_true)
+    # Calculate accuracy by chance over each label
+    accuracy_by_chances = np.array(
+        [cv_accuracy_by_chance(y_true[label],
+                               y_pred[label],
+                               train_idxs,
+                               test_idxs,
+                               threshold=threshold)
+         for label in range(n_labels)]
+    )
+    return accuracy_by_chances.T
+
+def cv_multilabel_log_odds_difference(y_true, y_pred, train_idxs, test_idxs, threshold=0.5):
+    """Calculates the log-odds difference over CV folds and labels.
+
+    Parameters
+    ----------
+    y_true : list of array-like
+        The true labels, as a list of arrays. The list is over labels, and the
+        array is over all samples.
+    y_pred : array-like
+        The predicted probabilities of each label, with same dimensions as
+        y_true.
+    train_idxs : list of arrays
+        The training indices for each fold.
+    test_idxs : list of arrays
+        The test indices for each fold.
+    threshold : float
+        The threshold by which to convert predicted probabilities to labels.
+
+    Returns
+    -------
+    log_odds_differences : np.ndarray
+        An array with the log-odds difference on each fold (first dimension)
+        and label (second dimension).
+    """
+    n_labels = len(y_true)
+    # Calculate log-odds difference over each label
+    log_odds_differences = np.array(
+        [cv_log_odds_difference(y_true[label],
+                                y_pred[label],
+                                train_idxs,
+                                test_idxs,
+                                threshold=threshold)
+         for label in range(n_labels)]
+    )
+    return log_odds_differences
+
+
+def cv_metric(y_true, y_pred, test_idxs, metric, **kwargs):
+    """Calculates a metric over CV folds.
+
+    Parameters
+    ----------
+    y_true : array-like
+        The true labels across all samples.
+    y_pred : array-like
+        The predicted probabilities of each label, with same dimensions as
+        y_true.
+    test_idxs : list of arrays
+        The test indices for each fold.
+    metric : function
+        The metric to use.
+
+    Returns
+    -------
+    metrics : np.ndarray
+        An array with the metric on each fold.
+    """
+    n_folds = len(test_idxs)
+    metrics = np.zeros(n_folds)
+
+    for idx, test_idx in enumerate(test_idxs):
+        # Obtain test samples
+        y_true_test = y_true[test_idx]
+        y_pred_test = y_pred[test_idx]
+        # Calculate metric
+        metrics[idx] = metric(y_true_test, y_pred_test, **kwargs)
+    return metrics
+
+
+def cv_multilabel_metric(y_true, y_pred, test_idxs, metric='roc_auc'):
+    """Calculates the log-odds difference over CV folds and labels.
+
+    Parameters
+    ----------
+    y_true : list of array-like
+        The true labels, as a list of arrays. The list is over labels, and the
+        array is over all samples.
+    y_pred : array-like
+        The predicted probabilities of each label, with same dimensions as
+        y_true.
+    test_idxs : list of arrays
+        The test indices for each fold.
+    metric : string
+        The metric to use. Options include 'roc_auc' or 'pr_auc'.
+
+    Returns
+    -------
+    metrics : np.ndarray
+        An array with the metric on each fold (first dimension) and label
+        (second dimension).
+    """
+    if metric == 'roc_auc':
+        metric_fn = roc_auc_score
+    elif metric == 'pr_auc':
+        metric_fn = average_precision_score
+    else:
+        raise ValueError(f'Metric "{metric}" not available.')
+
+    n_labels = len(y_true)
+    metrics = np.array(
+        [cv_metric(y_true[label], y_pred[label], test_idxs, metric_fn)
+         for label in range(n_labels)]
+    )
+    return metrics
 
 
 def cv_wrapper(x, y, model_builder, model_kwargs={}, compile_kwargs={},
