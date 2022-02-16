@@ -29,6 +29,7 @@ parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--epsilon', type=float, default=1e-8)
 parser.add_argument('--early_stopping_min_delta', type=float, default=0.001)
 parser.add_argument('--early_stopping_patience', type=float, default=2)
+parser.add_argument('--weighted', action='store_true')
 parser.add_argument('--gpu', type=int, default=2)
 args = parser.parse_args()
 
@@ -61,6 +62,10 @@ callback = tf.keras.callbacks.EarlyStopping(
     min_delta=args.early_stopping_min_delta,
     restore_best_weights=True,
     patience=args.early_stopping_patience)
+if args.weighted:
+    sample_weights = data[comment_id].value_counts().sort_index().values
+else:
+    sample_weights = None
 
 # Run cross-validation using Universal Sentence Encoder
 (n_epochs, _, _, train_idxs, test_idxs, test_predictions, test_scores,
@@ -74,7 +79,9 @@ callback = tf.keras.callbacks.EarlyStopping(
                       'dropout_rate': args.dropout_rate},
         compile_kwargs={'optimizer': Adam(lr=args.lr, epsilon=args.epsilon),
                         'loss': 'binary_crossentropy',
-                        'metrics': ['acc']},
+                        'metrics': [tf.keras.metrics.Accuracy(name='accuracy'),
+                                    tf.keras.metrics.AUC(curve='ROC', name='roc_auc'),
+                                    tf.keras.metrics.AUC(curve='PR', name='pr_auc')]},
         batch_size=args.batch_size,
         max_epochs=args.max_epochs,
         n_folds=args.n_folds,
@@ -85,7 +92,8 @@ callback = tf.keras.callbacks.EarlyStopping(
         callbacks=[callback],
         cv_verbose=True,
         report_chance=True,
-        unwrap_predictions=True)
+        unwrap_predictions=True,
+        sample_weights=sample_weights)
 
 exp_file = os.path.join(args.save_folder, args.save_name + '.pkl')
 with open(exp_file, 'wb') as results:

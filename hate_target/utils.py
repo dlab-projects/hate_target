@@ -69,6 +69,16 @@ def accuracy_by_chance(p_train, p_test):
     return 2 * p_train * p_test - p_train - p_test + 1
 
 
+def accuracy_by_chance_over_folds(y_true, y_pred, train_idxs):
+    n_folds = len(train_idxs)
+    accuracy_by_chances = np.zeros(n_folds)
+
+    for fold_idx in train_idxs:
+        y_true_train = y_
+        p_train = y_true.mean()
+    p_test = y_
+
+
 def cv_wrapper(x, y, model_builder, model_kwargs={}, compile_kwargs={},
                batch_size=32, max_epochs=50, n_folds=5, val_frac=0.2,
                lr=0.001, refit=False, refit_fold=False,
@@ -285,33 +295,3 @@ def cv_wrapper(x, y, model_builder, model_kwargs={}, compile_kwargs={},
     if report_chance:
         results = results + (chance,)
     return results
-
-
-def weighted_correlation(x, y, weights):
-    """Calculates a weighted Pearson correlation coefficient.
-
-    Parameters
-    ----------
-    x, y : np.ndarrays
-        The data with which to evaluate the correlation.
-    weights : np.ndarray
-        The weight to apply to each sample.
-
-    Returns
-    -------
-    corr : float
-        The weighted Pearson correlation coefficient.
-    """
-    norm = np.sum(weights)
-    # Center the data
-    x_mean = (x @ weights) / norm
-    x_res = x - x_mean
-    y_mean = (y @ weights) / norm
-    y_res = y - y_mean
-    # Calculate variances and covariance
-    x_var = (x_res**2 @ weights) / norm
-    y_var = (y_res**2 @ weights) / norm
-    xy_covar = np.sum(weights * x_res * y_res) / norm
-    # Evaluate weighted correlation
-    corr = xy_covar / np.sqrt(x_var * y_var)
-    return corr
