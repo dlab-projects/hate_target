@@ -62,11 +62,11 @@ callback = tf.keras.callbacks.EarlyStopping(
     min_delta=args.early_stopping_min_delta,
     restore_best_weights=True,
     patience=args.early_stopping_patience)
-if args.weighted == 'unit':
+if args.weights == 'unit':
     sample_weights = data[comment_id].value_counts().sort_index().values
-elif args.weighted == 'sqrt':
+elif args.weights == 'sqrt':
     sample_weights = np.sqrt(data[comment_id].value_counts().sort_index().values)
-elif args.weighted == 'log':
+elif args.weights == 'log':
     sample_weights = 1 + np.log(data[comment_id].value_counts().sort_index().values)
 else:
     sample_weights = None
