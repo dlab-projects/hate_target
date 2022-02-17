@@ -29,7 +29,7 @@ parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--epsilon', type=float, default=1e-8)
 parser.add_argument('--early_stopping_min_delta', type=float, default=0.001)
 parser.add_argument('--early_stopping_patience', type=float, default=2)
-parser.add_argument('--weighted', action='store_true')
+parser.add_argument('--weights', type=str, default='none')
 parser.add_argument('--gpu', type=int, default=2)
 args = parser.parse_args()
 
@@ -62,8 +62,12 @@ callback = tf.keras.callbacks.EarlyStopping(
     min_delta=args.early_stopping_min_delta,
     restore_best_weights=True,
     patience=args.early_stopping_patience)
-if args.weighted:
+if args.weighted == 'unit':
     sample_weights = data[comment_id].value_counts().sort_index().values
+elif args.weighted == 'sqrt':
+    sample_weights = np.sqrt(data[comment_id].value_counts().sort_index().values)
+elif args.weighted == 'log':
+    sample_weights = 1 + np.log(data[comment_id].value_counts().sort_index().values)
 else:
     sample_weights = None
 
