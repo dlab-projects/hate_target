@@ -83,7 +83,7 @@ if transformer == "distilbert-base-uncased":
 
 # Run cross-validation using Universal Sentence Encoder
 (n_epochs, _, _, train_idxs, test_idxs, test_predictions, test_scores,
- model_refit, history_refit, chance) = \
+ model_refit, history_refit) = \
     cv_wrapper(
         x=[inputs['input_ids'], inputs['attention_mask']],
         y=y,
@@ -100,15 +100,21 @@ if transformer == "distilbert-base-uncased":
         verbose=True,
         callbacks=[callback],
         cv_verbose=True,
-        report_chance=True,
+        report_chance=False,
         unwrap_predictions=True,
         sample_weights=sample_weights)
 
 exp_file = os.path.join(args.save_folder, args.save_name + '.pkl')
-with open(exp_file, 'wb') as results:
-    pickle.dump([x, y,
-                 n_epochs, train_idxs, test_idxs,
-                 test_predictions, test_scores,
-                 chance], results)
+results = {
+    'x': x,
+    'y_true': y,
+    'y_pred': test_predictions,
+    'train_idxs': train_idxs,
+    'test_idxs': test_idxs,
+    'test_scores': test_scores,
+    'n_epochs': n_epochs
+}
+with open(exp_file, 'wb') as results_file:
+    pickle.dump(results, results_file)
 model_file = os.path.join(args.save_folder, args.save_name + '_model')
 model_refit.save(model_file)
