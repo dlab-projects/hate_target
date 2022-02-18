@@ -73,7 +73,7 @@ else:
 
 # Run cross-validation using Universal Sentence Encoder
 (n_epochs, _, _, train_idxs, test_idxs, test_predictions, test_scores,
- model_refit, history_refit, chance) = \
+ model_refit, history_refit) = \
     cv_wrapper(
         x=[x],
         y=y,
