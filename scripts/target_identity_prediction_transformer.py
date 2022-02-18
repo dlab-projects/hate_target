@@ -52,7 +52,7 @@ agreement = data[[comment_id] + keys.target_groups].groupby(comment_id).agg('mea
 is_target = (agreement >= threshold).astype('int').reset_index(level=0).merge(right=comments, how='left')
 # Extract data for training models
 x = is_target[text_col].values
-identities = agreement[sorted(keys.target_groups)]
+identities = is_target[sorted(keys.target_groups)]
 y = [identities[col].values.astype('int')[..., np.newaxis] for col in identities]
 # Callback function
 callback = tf.keras.callbacks.EarlyStopping(
