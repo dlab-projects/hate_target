@@ -54,7 +54,7 @@ agreement = data[[comment_id] + keys.target_groups].groupby(comment_id).agg('mea
 is_target = (agreement >= threshold).astype('int').reset_index(level=0).merge(right=comments, how='left')
 # Extract data for training models
 x = is_target[text_col].values
-identities = agreement[sorted(keys.target_groups)]
+identities = is_target[sorted(keys.target_groups)]
 y = [identities[col].values.astype('int')[..., np.newaxis] for col in identities]
 # Callback function
 callback = tf.keras.callbacks.EarlyStopping(
@@ -92,15 +92,21 @@ else:
         verbose=True,
         callbacks=[callback],
         cv_verbose=True,
-        report_chance=True,
+        report_chance=False,
         unwrap_predictions=True,
         sample_weights=sample_weights)
 
 exp_file = os.path.join(args.save_folder, args.save_name + '.pkl')
-with open(exp_file, 'wb') as results:
-    pickle.dump([x, y,
-                 n_epochs, train_idxs, test_idxs,
-                 test_predictions, test_scores,
-                 chance], results)
+results = {
+    'x': x,
+    'y_true': y,
+    'y_pred': test_predictions,
+    'train_idxs': train_idxs,
+    'test_idxs': test_idxs,
+    'test_scores': test_scores,
+    'n_epochs': n_epochs
+}
+with open(exp_file, 'wb') as results_file:
+    pickle.dump(results, results_file)
 model_file = os.path.join(args.save_folder, args.save_name + '_model')
 model_refit.save(model_file)

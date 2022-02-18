@@ -6,7 +6,7 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 from tensorflow.keras.optimizers import Adam
 
 
-def analyze_experiment(path, n_groups=8):
+def analyze_experiment(path, n_groups=8, verbose=True):
     """Analyze target identity experiment results.
 
     Parameters
@@ -22,36 +22,42 @@ def analyze_experiment(path, n_groups=8):
         The results dictionary.
     """
     with open(path, 'rb') as file:
-        _, y, _, _, _, test_predictions, test_scores, chance = \
-            pickle.load(file)
+        results = pickle.load(file)
 
-    # Test loss
-    test_loss = test_scores[:, 0]
-    # Test loss on labels
-    test_loss_labels = test_scores[:, 1:(n_groups + 1)]
-    # Test accuracies
-    test_accs = test_scores[:, (n_groups + 1):]
-    # Accuracy over chance
-    acc_over_chance = test_accs / chance
-    # Log-Odds Difference
-    log_odds_diff = np.log(test_accs / (1 - test_accs)) - np.log(chance / (1 - chance))
-    # AUC ROC
-    roc_aucs = np.array(
-        [roc_auc_score(y[i].ravel(), test_predictions[i].ravel())
-         for i in range(n_groups)])
-    pr_aucs = auc_prcs = np.array(
-        [average_precision_score(y[i].ravel(), test_predictions[i].ravel())
-         for i in range(n_groups)])
+    test_scores = results['test_scores']
+    y_true = results['y_true']
+    y_pred = results['y_pred']
+    train_idxs = results['train_idxs']
+    test_idxs = results['test_idxs']
 
-    results = {
-        'test_loss': test_loss,
-        'test_loss_labels': test_loss_labels,
-        'test_accs': test_accs,
-        'acc_over_chance': acc_over_chance,
-        'log_odds_difference': log_odds_diff,
+    overall_loss = test_scores[:, 0]
+    label_loss = test_scores[:, 1:]
+    accuracy_by_chance = cv_multilabel_accuracy_by_chance(
+        y_true, y_pred, train_idxs, test_idxs)
+    log_odds_difference = cv_multilabel_log_odds_difference(
+        y_true, y_pred, train_idxs, test_idxs)
+    roc_aucs = cv_multilabel_metric(
+        y_true, y_pred, test_idxs, 'roc_auc')
+    pr_aucs = cv_multilabel_metric(
+        y_true, y_pred, test_idxs, 'pr_auc')
+
+    if verbose:
+        print(f"Overall loss: {overall_loss.mean():0.4f}")
+        print(f"Label loss: {label_loss.mean():0.4f}")
+        print(f"Accuracy by chance: {accuracy_by_chance.mean():0.4f}")
+        print(f"Log-odds difference: {log_odds_difference.mean():0.4}")
+        print(f"ROC AUC: {roc_aucs.mean():0.4f}")
+        print(f"PR AUC: {pr_aucs.mean():0.4f}")
+
+    analysis = {
+        'overall_loss': overall_loss,
+        'label_loss': label_loss,
+        'accuracy_by_chance': accuracy_by_chance,
+        'log_odds_difference': log_odds_difference,
         'roc_aucs': roc_aucs,
-        'pr_aucs': pr_aucs}
-    return results
+        'pr_aucs': pr_aucs
+    }
+    return analysis
 
 
 def accuracy_by_chance(p_train, p_test):

@@ -72,7 +72,7 @@ else:
 transformer = args.transformer
 if transformer == "distilbert-base-uncased":
     tokenizer = transformers.DistilBertTokenizer.from_pretrained(transformer)
-    inputs = tokenizer(x.tolist(), return_tensors='tf', padding=True)
+    inputs = tokenizer(x.tolist(), return_tensors='np', padding=True)
     model_builder = TargetIdentityClassifier.build_model
     model_kwargs = {
         'transformer': transformer,
