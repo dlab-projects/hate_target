@@ -4,8 +4,9 @@ import os
 import pandas as pd
 import pickle
 import tensorflow as tf
+import transformers
 
-from hate_measure.nn.classifiers import TargetIdentityClassifierUSE
+from hate_measure.nn import classifiers
 from hate_target.utils import cv_wrapper
 from hate_target import keys
 from tensorflow.keras.optimizers import Adam
@@ -20,7 +21,7 @@ parser.add_argument('--verbose', action='store_true')
 parser.add_argument('--threshold', type=float, default=0.5)
 parser.add_argument('--n_folds', type=int, default=5)
 parser.add_argument('--val_frac', type=float, default=0.15)
-parser.add_argument('--use_version', type=str, default='v5')
+parser.add_argument('--model', type=str, default='use_v5')
 parser.add_argument('--n_dense', type=int, default=128)
 parser.add_argument('--batch_size', type=int, default=32)
 parser.add_argument('--max_epochs', type=int, default=20)
@@ -30,6 +31,7 @@ parser.add_argument('--epsilon', type=float, default=1e-8)
 parser.add_argument('--early_stopping_min_delta', type=float, default=0.001)
 parser.add_argument('--early_stopping_patience', type=float, default=2)
 parser.add_argument('--weights', type=str, default='none')
+parser.add_argument('--soft', action='store_true')
 parser.add_argument('--gpu', type=int, default=2)
 args = parser.parse_args()
 
@@ -55,13 +57,14 @@ is_target = (agreement >= threshold).astype('int').reset_index(level=0).merge(ri
 # Extract data for training models
 x = is_target[text_col].values
 identities = is_target[sorted(keys.target_groups)]
-y = [identities[col].values.astype('int')[..., np.newaxis] for col in identities]
-# Callback function
-callback = tf.keras.callbacks.EarlyStopping(
-    monitor='val_loss',
-    min_delta=args.early_stopping_min_delta,
-    restore_best_weights=True,
-    patience=args.early_stopping_patience)
+# Assign labels (hard or soft labels)
+y_soft = [identities[col].values[..., np.newaxis] for col in identities]
+y_hard = [identities[col].values.astype('int')[..., np.newaxis] for col in identities]
+if args.soft:
+    y_true = y_soft
+else:
+    y_true = y_hard
+# Assign weights to samples
 if args.weights == 'unit':
     sample_weights = data[comment_id].value_counts().sort_index().values
 elif args.weights == 'sqrt':
@@ -70,19 +73,65 @@ elif args.weights == 'log':
     sample_weights = 1 + np.log(data[comment_id].value_counts().sort_index().values)
 else:
     sample_weights = None
+# Create callback function
+callback = tf.keras.callbacks.EarlyStopping(
+    monitor='val_loss',
+    min_delta=args.early_stopping_min_delta,
+    restore_best_weights=True,
+    patience=args.early_stopping_patience)
+# Create model parameters
+model = args.model
+if model == 'use_v4':
+    inputs = [x]
+    model_builder = classifiers.TargetIdentityClassifierUSE.build_model
+    model_kwargs = {
+        'n_dense': args.n_dense,
+        'version': 'v4',
+        'dropout_rate': args.dropout_rate
+    }
+elif model == 'use_v5':
+    inputs = [x]
+    model_builder = classifiers.TargetIdentityClassifierUSE.build_model
+    model_kwargs = {
+        'n_dense': args.n_dense,
+        'version': 'v5',
+        'dropout_rate': args.dropout_rate
+    }
+elif model == "distilbert-base-uncased":
+    tokenizer = transformers.DistilBertTokenizer.from_pretrained(model)
+    inputs = tokenizer(x.tolist(), return_tensors='np', padding=True)
+    model_builder = classifiers.TargetIdentityClassifier.build_model
+    model_kwargs = {
+        'transformer': model,
+        'max_length': inputs['input_ids'].shape[1],
+        'n_dense': args.n_dense,
+        'dropout_rate': args.dropout_rate
+    }
+elif model == "bert-base-uncased":
+    tokenizer = transformers.BertTokenizer.from_pretrained(model)
+    inputs = tokenizer(x.tolist(), return_tensors='np', padding=True)
+    model_builder = classifiers.TargetIdentityClassifier.build_model
+    model_kwargs = {
+        'transformer': model,
+        'max_length': inputs['input_ids'].shape[1],
+        'n_dense': args.n_dense,
+        'dropout_rate': args.dropout_rate
+    }
+# Create compile arguments
+compile_kwargs = {
+    'optimizer': Adam(lr=args.lr, epsilon=args.epsilon),
+    'loss': 'binary_crossentropy'
+}
 
 # Run cross-validation using Universal Sentence Encoder
 (n_epochs, _, _, train_idxs, test_idxs, test_predictions, test_scores,
  model_refit, history_refit) = \
     cv_wrapper(
-        x=[x],
-        y=y,
-        model_builder=TargetIdentityClassifierUSE.build_model,
-        model_kwargs={'n_dense': args.n_dense,
-                      'version': args.use_version,
-                      'dropout_rate': args.dropout_rate},
-        compile_kwargs={'optimizer': Adam(lr=args.lr, epsilon=args.epsilon),
-                        'loss': 'binary_crossentropy'},
+        x=inputs,
+        y=y_true,
+        model_builder=model_builder,
+        model_kwargs=model_kwargs,
+        compile_kwargs=compile_kwargs,
         batch_size=args.batch_size,
         max_epochs=args.max_epochs,
         n_folds=args.n_folds,
@@ -99,7 +148,9 @@ else:
 exp_file = os.path.join(args.save_folder, args.save_name + '.pkl')
 results = {
     'x': x,
-    'y_true': y,
+    'y_true': y_true,
+    'y_soft': y_soft,
+    'y_hard': y_hard,
     'y_pred': test_predictions,
     'train_idxs': train_idxs,
     'test_idxs': test_idxs,
