@@ -53,12 +53,13 @@ data = pd.read_feather(args.data_path)
 comments = data[[comment_id, text_col]].drop_duplicates().sort_values(comment_id)
 # Determine target identities
 agreement = data[[comment_id] + keys.target_groups].groupby(comment_id).agg('mean')
+agreement = agreement[sorted(keys.target_groups)]
 is_target = (agreement >= threshold).astype('int').reset_index(level=0).merge(right=comments, how='left')
 # Extract data for training models
 x = is_target[text_col].values
 identities = is_target[sorted(keys.target_groups)]
 # Assign labels (hard or soft labels)
-y_soft = [identities[col].values[..., np.newaxis] for col in identities]
+y_soft = [agreement[col].values[..., np.newaxis] for col in identities]
 y_hard = [identities[col].values.astype('int')[..., np.newaxis] for col in identities]
 if args.soft:
     y_true = y_soft
