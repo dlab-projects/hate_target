@@ -113,7 +113,7 @@ elif model == "distilbert-base-uncased":
 elif model == "bert-base-uncased":
     tokenizer = transformers.BertTokenizer.from_pretrained(model)
     tokens = tokenizer(x.tolist(), return_tensors='np', padding=True)
-    inputs = [x['input_ids'], x['attention_mask']]
+    inputs = [tokens['input_ids'], tokens['attention_mask']]
     model_builder = classifiers.TargetIdentityClassifier.build_model
     model_kwargs = {
         'transformer': model,
