@@ -117,7 +117,7 @@ elif model == "bert-base-uncased":
     model_builder = classifiers.TargetIdentityClassifier.build_model
     model_kwargs = {
         'transformer': model,
-        'max_length': inputs['input_ids'].shape[1],
+        'max_length': tokens['input_ids'].shape[1],
         'n_dense': args.n_dense,
         'dropout_rate': args.dropout_rate,
         'pooling': args.pooling,
