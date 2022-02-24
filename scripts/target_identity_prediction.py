@@ -23,6 +23,8 @@ parser.add_argument('--n_folds', type=int, default=5)
 parser.add_argument('--val_frac', type=float, default=0.15)
 parser.add_argument('--model', type=str, default='use_v5')
 parser.add_argument('--n_dense', type=int, default=128)
+parser.add_argument('--pooling', type=str, default='max')
+parser.add_argument('--mask', action='store_true')
 parser.add_argument('--batch_size', type=int, default=32)
 parser.add_argument('--max_epochs', type=int, default=20)
 parser.add_argument('--dropout_rate', type=float, default=0.4)
@@ -110,13 +112,16 @@ elif model == "distilbert-base-uncased":
     }
 elif model == "bert-base-uncased":
     tokenizer = transformers.BertTokenizer.from_pretrained(model)
-    inputs = tokenizer(x.tolist(), return_tensors='np', padding=True)
+    tokens = tokenizer(x.tolist(), return_tensors='np', padding=True)
+    inputs = [x['input_ids'], x['attention_mask']]
     model_builder = classifiers.TargetIdentityClassifier.build_model
     model_kwargs = {
         'transformer': model,
         'max_length': inputs['input_ids'].shape[1],
         'n_dense': args.n_dense,
-        'dropout_rate': args.dropout_rate
+        'dropout_rate': args.dropout_rate,
+        'pooling': args.pooling,
+        'mask_pool': args.mask_pool
     }
 # Create compile arguments
 compile_kwargs = {

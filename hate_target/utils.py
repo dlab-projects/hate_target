@@ -6,7 +6,7 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 from tensorflow.keras.optimizers import Adam
 
 
-def analyze_experiment(path, n_groups=8, verbose=True):
+def analyze_experiment(path, soft=False, verbose=True):
     """Analyze target identity experiment results.
 
     Parameters
@@ -25,7 +25,10 @@ def analyze_experiment(path, n_groups=8, verbose=True):
         results = pickle.load(file)
 
     test_scores = results['test_scores']
-    y_true = results['y_true']
+    if soft:
+        y_true = results['y_hard']
+    else:
+        y_true = results['y_true']
     y_pred = results['y_pred']
     train_idxs = results['train_idxs']
     test_idxs = results['test_idxs']
