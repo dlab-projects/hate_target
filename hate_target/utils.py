@@ -504,9 +504,6 @@ def cv_wrapper(x, y, model_builder, model_kwargs={}, compile_kwargs={},
         histories.append(history)
         if store_models:
             models.append(model)
-        # Save some memory
-        del model
-        del history
         if cv_verbose:
             print("Fitting complete. Running test predictions...")
         # Evaluate the model on the test set
@@ -516,7 +513,9 @@ def cv_wrapper(x, y, model_builder, model_kwargs={}, compile_kwargs={},
         test_predictions.append(model.predict(x_test))
         # Evaluation on the test set
         test_scores.append(model.evaluate(x=x_test, y=y_test))
-
+        # Save some memory
+        del model
+        del history
         if cv_verbose:
             print("Fold complete.")
 

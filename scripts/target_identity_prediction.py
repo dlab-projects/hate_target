@@ -146,8 +146,8 @@ cv_results = cv_wrapper(
         verbose=True,
         callbacks=[callback],
         cv_verbose=True,
-        report_chance=False,
         unwrap_predictions=True,
+        store_models=False,
         sample_weights=sample_weights)
 
 exp_file = os.path.join(args.save_folder, args.save_name + '.pkl')
