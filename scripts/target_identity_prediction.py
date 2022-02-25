@@ -34,16 +34,17 @@ parser.add_argument('--early_stopping_min_delta', type=float, default=0.001)
 parser.add_argument('--early_stopping_patience', type=float, default=2)
 parser.add_argument('--weights', type=str, default='none')
 parser.add_argument('--soft', action='store_true')
-parser.add_argument('--gpu', type=int, default=2)
+parser.add_argument('--gpu', type=int, default=-1)
 args = parser.parse_args()
 
 # Deal with environment settings
 os.environ["TFHUB_CACHE_DIR"] = os.path.join(os.environ['HOME'],
                                              '.cache/tfhub_modules')
-# Set GPU
-gpus = tf.config.experimental.list_physical_devices('GPU')
-gpu = gpus[args.gpu]
-tf.config.experimental.set_visible_devices(gpu, 'GPU')
+# Limit GPU usage is requested
+if args.gpu != -1:
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    gpu = gpus[args.gpu]
+    tf.config.experimental.set_visible_devices(gpu, 'GPU')
 
 # Define relevant quantities
 comment_id = 'comment_id'
