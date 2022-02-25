@@ -1,9 +1,11 @@
 import numpy as np
+import ftfy
 import pickle
 
 from sklearn.model_selection import KFold, ShuffleSplit
 from sklearn.metrics import roc_auc_score, average_precision_score
 from tensorflow.keras.optimizers import Adam
+from textacy import preprocessing as pp
 
 
 def analyze_experiment(path, soft=False, verbose=True):
@@ -316,12 +318,36 @@ def cv_multilabel_metric(y_true, y_pred, test_idxs, metric='roc_auc'):
     return metrics
 
 
+def preprocess(text):
+    """Normalize some distracting parts of text data.
+    URLS, phone numbers and email addresses are remove to protect people's
+    identities if that content ends up in our data. Accents are removed and
+    everything is case-folded to reduce the character and type vocab that we
+    deal with downstream.
+    Parameters
+    ----------
+    text : str
+    Returns
+    -------
+    str
+    """
+    text = ftfy.fix_text(text)
+    text = text.lower()
+    text = pp.normalize.whitespace(text)
+    text = text.replace('\n', ' ')
+    text = pp.replace.urls(text, repl='URL')
+    text = pp.replace.phone_numbers(text, repl='PHONE')
+    text = pp.replace.emails(text, repl='EMAIL')
+    text = pp.remove.accents(text)
+    return text
+
+
 def cv_wrapper(x, y, model_builder, model_kwargs={}, compile_kwargs={},
                batch_size=32, max_epochs=50, n_folds=5, val_frac=0.2,
                lr=0.001, refit=False, refit_fold=False,
-               unwrap_predictions=False, report_chance=False,
-               callbacks=None, sample_weights=None, random_state=None,
-               verbose=False, cv_verbose=False):
+               unwrap_predictions=False, callbacks=None, sample_weights=None,
+               random_state=None, store_models=False, verbose=False,
+               cv_verbose=False):
     """Cross-validate a model and evaluate its predictive accuracy.
 
     Within each fold, the model is fit first with early stopping on a
@@ -365,9 +391,6 @@ def cv_wrapper(x, y, model_builder, model_kwargs={}, compile_kwargs={},
         If True, rearranges the test predictions to have outer list correspond
         to output, while each inner array corresponds to the predictions for
         that output across all samples, sorted by the input sample index.
-    report_chance : bool
-        If True, returns an array that contains the accuracy achieved by a naive
-        classifier for each training set.
     sample_weights : array-like of None
         The weight for each sample during training. If None, assumes all
         samples have the same weight.
@@ -413,8 +436,6 @@ def cv_wrapper(x, y, model_builder, model_kwargs={}, compile_kwargs={},
     cv = KFold(n_splits=n_folds)
     # Lists for storing information across folds
     n_epochs = np.zeros(n_folds, dtype=int)
-    if report_chance:
-        chance = np.zeros((n_folds, len(y)))
     histories = []
     models = []
     train_idxs = []
@@ -481,7 +502,11 @@ def cv_wrapper(x, y, model_builder, model_kwargs={}, compile_kwargs={},
                                 verbose=verbose,
                                 sample_weight=sample_weights_train)
         histories.append(history)
-        models.append(model)
+        if store_models:
+            models.append(model)
+        # Save some memory
+        del model
+        del history
         if cv_verbose:
             print("Fitting complete. Running test predictions...")
         # Evaluate the model on the test set
@@ -491,10 +516,7 @@ def cv_wrapper(x, y, model_builder, model_kwargs={}, compile_kwargs={},
         test_predictions.append(model.predict(x_test))
         # Evaluation on the test set
         test_scores.append(model.evaluate(x=x_test, y=y_test))
-        if report_chance:
-            chance[fold_idx] = [
-                accuracy_by_chance(train.mean(), test.mean())
-                for train, test in zip(y_train, y_test)]
+
         if cv_verbose:
             print("Fold complete.")
 
@@ -511,8 +533,14 @@ def cv_wrapper(x, y, model_builder, model_kwargs={}, compile_kwargs={},
                             for fold in range(n_folds)], axis=0)[sorted_idxs]
             for output in range(n_outputs)]
     # Begin compiling results
-    results = (n_epochs, models, histories, train_idxs, test_idxs,
-               test_predictions, test_scores)
+    results = {
+        'n_epochs': n_epochs,
+        'models': models,
+        'histories': histories,
+        'train_idxs': train_idxs,
+        'test_idxs': test_idxs,
+        'test_predictions': test_predictions,
+        'test_scores': test_scores}
     # Refit model to entire dataset if needed
     if refit:
         n_epochs_refit = int(np.round(np.mean(n_epochs)))
@@ -528,7 +556,7 @@ def cv_wrapper(x, y, model_builder, model_kwargs={}, compile_kwargs={},
                                         sample_weight=sample_weights)
         if cv_verbose:
             print("Model fit complete.")
-        results = results + (model_refit, history_refit)
-    if report_chance:
-        results = results + (chance,)
+        results['model_refit'] = model_refit
+        results['history_refit'] = history_refit
+
     return results

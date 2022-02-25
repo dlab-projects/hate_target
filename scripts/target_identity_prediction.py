@@ -130,9 +130,7 @@ compile_kwargs = {
 }
 
 # Run cross-validation using Universal Sentence Encoder
-(n_epochs, _, _, train_idxs, test_idxs, test_predictions, test_scores,
- model_refit, history_refit) = \
-    cv_wrapper(
+cv_results = cv_wrapper(
         x=inputs,
         y=y_true,
         model_builder=model_builder,
@@ -157,13 +155,13 @@ results = {
     'y_true': y_true,
     'y_soft': y_soft,
     'y_hard': y_hard,
-    'y_pred': test_predictions,
-    'train_idxs': train_idxs,
-    'test_idxs': test_idxs,
-    'test_scores': test_scores,
-    'n_epochs': n_epochs
+    'y_pred': cv_results['test_predictions'],
+    'train_idxs': cv_results['train_idxs'],
+    'test_idxs': cv_results['test_idxs'],
+    'test_scores': cv_results['test_scores'],
+    'n_epochs': cv_results['n_epochs']
 }
 with open(exp_file, 'wb') as results_file:
     pickle.dump(results, results_file)
-model_file = os.path.join(args.save_folder, args.save_name + '_model')
-model_refit.save(model_file)
+model_file = os.path.join(args.save_folder, args.save_name + '_model.h5')
+cv_results['model_refit'].save_weights(model_file)
