@@ -85,9 +85,23 @@ def load_subgroup(data_path, group, threshold=0.5, text_col='predict_text'):
 
     if group == 'race':
         target_cols = sorted(keys.target_race_cols)
+        # Get targets
+        targets = data[['comment_id'] + target_cols]
+    elif group == 'gender':
+        target_cols = sorted(keys.target_gender_cols)
+        # Get targets
+        targets = data[['comment_id'] + target_cols]
+        targets['target_gender_transgender'] = (
+            targets['target_gender_transgender_men'] |
+            targets['target_gender_transgender_women'] |
+            targets['target_gender_transgender_other'])
+        target_cols = [
+            'target_gender_men',
+            'target_gender_non_binary',
+            'target_gender_transgender',
+            'target_gender_women']
+        targets = targets[['comment_id'] + target_cols]
 
-    # Get targets
-    targets = data[['comment_id'] + target_cols]
     # Calculate fraction of annotators agreement on target
     agreement = targets.groupby('comment_id'
         ).agg('mean'
