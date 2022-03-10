@@ -38,11 +38,12 @@ parser.add_argument('--gpu', type=int, default=-1)
 args = parser.parse_args()
 
 # Deal with environment settings
-os.environ["TFHUB_CACHE_DIR"] = os.path.join(os.environ['HOME'],
-                                             '.cache/tfhub_modules')
-# Limit GPU usage is requested
+os.environ["TFHUB_CACHE_DIR"] = os.path.join(os.environ['HOME'], '.cache/tfhub_modules')
+# Limit GPU memory usage
+gpus = tf.config.experimental.list_physical_devices('GPU')
+[tf.config.experimental.set_memory_growth(gpu, True) for gpu in gpus]
+# Request specific GPU
 if args.gpu != -1:
-    gpus = tf.config.experimental.list_physical_devices('GPU')
     gpu = gpus[args.gpu]
     tf.config.experimental.set_visible_devices(gpu, 'GPU')
 
@@ -124,7 +125,20 @@ elif model == "bert-base-uncased":
         'pooling': args.pooling,
         'mask_pool': args.mask_pool
     }
-# Create compile arguments
+elif model == 'roberta-base':
+    tokenizer = transformers.RobertaTokenizer.from_pretrained("roberta-base")
+    tokens = tokenizer(x.tolist(), return_tensors='np', padding=True)
+    inputs = [tokens['input_ids'], tokens['attention_mask']]
+    model_builder = classifiers.TargetIdentityClassifier.build_model
+    model_kwargs = {
+        'transformer': model,
+        'max_length': tokens['input_ids'].shape[1],
+        'n_dense': args.n_dense,
+        'dropout_rate': args.dropout_rate,
+        'pooling': args.pooling,
+        'mask_pool': args.mask_pool
+    }
+
 compile_kwargs = {
     'optimizer': Adam(lr=args.lr, epsilon=args.epsilon),
     'loss': 'binary_crossentropy'
@@ -164,5 +178,6 @@ results = {
 }
 with open(exp_file, 'wb') as results_file:
     pickle.dump(results, results_file)
-model_file = os.path.join(args.save_folder, args.save_name + '_model.h5')
-cv_results['model_refit'].save_weights(model_file)
+if 'model_refit' in cv_results:
+    model_file = os.path.join(args.save_folder, args.save_name + '_model.h5')
+    cv_results['model_refit'].save_weights(model_file)
