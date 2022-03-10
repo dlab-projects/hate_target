@@ -94,7 +94,7 @@ def load_subgroup(data_path, group, threshold=0.5, text_col='predict_text'):
         targets['target_gender_transgender'] = (
             targets['target_gender_transgender_men'] |
             targets['target_gender_transgender_women'] |
-            targets['target_gender_transgender_other'])
+            targets['target_gender_transgender_unspecified'])
         target_cols = [
             'target_gender_men',
             'target_gender_non_binary',
