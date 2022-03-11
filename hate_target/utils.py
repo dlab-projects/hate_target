@@ -58,9 +58,9 @@ def analyze_experiment(path, soft=False, verbose=True):
         'overall_loss': overall_loss,
         'label_loss': label_loss,
         'accuracy_by_chance': accuracy_by_chance,
-        'log_odds_difference': log_odds_difference,
-        'roc_aucs': roc_aucs,
-        'pr_aucs': pr_aucs
+        'log_odds_difference': log_odds_difference.T,
+        'roc_aucs': roc_aucs.T,
+        'pr_aucs': pr_aucs.T
     }
     return analysis
 
