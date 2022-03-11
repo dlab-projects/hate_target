@@ -54,6 +54,44 @@ def load_gab_hate_corpus(path):
     return gab, is_target
 
 
+def grab_subgroup_cols(data, subgroup):
+    """Loads subgroup columns from the hate speech dataset.
+    
+    Parameters
+    ----------
+    data : pd.DataFrame
+        The Measuring Hate Speech data.
+    subgroup : string
+        The subgroup to extract.
+        
+    Returns
+    -------
+    targets : pd.DataFrame
+        The targets for each comment ID.
+    target_cols : list
+        The column names for the targets.
+    """
+    if subgroup == 'race':
+        target_cols = sorted(keys.target_race_cols)
+        # Get targets
+        targets = data[['comment_id'] + target_cols].copy()
+    elif subgroup == 'gender':
+        target_cols = sorted(keys.target_gender_cols)
+        # Get targets
+        targets = data[['comment_id'] + target_cols].copy()
+        targets['target_gender_transgender'] = targets[[
+            'target_gender_transgender_men',
+            'target_gender_transgender_women',
+            'target_gender_transgender_unspecified']].any(axis=1)
+        target_cols = [
+            'target_gender_men',
+            'target_gender_non_binary',
+            'target_gender_transgender',
+            'target_gender_women']
+        targets = targets[['comment_id'] + target_cols]
+    return targets, target_cols
+
+
 def load_subgroup(data_path, group, threshold=0.5, text_col='predict_text'):
     """Load a subgroup from the Measuring Hate Speech dataset.
     
@@ -83,24 +121,13 @@ def load_subgroup(data_path, group, threshold=0.5, text_col='predict_text'):
     data = pd.read_feather(data_path)
     comments = data[['comment_id', text_col]].drop_duplicates().sort_values('comment_id')
 
-    if group == 'race':
-        target_cols = sorted(keys.target_race_cols)
-        # Get targets
-        targets = data[['comment_id'] + target_cols]
-    elif group == 'gender':
-        target_cols = sorted(keys.target_gender_cols)
-        # Get targets
-        targets = data[['comment_id'] + target_cols]
-        targets['target_gender_transgender'] = (
-            targets['target_gender_transgender_men'] |
-            targets['target_gender_transgender_women'] |
-            targets['target_gender_transgender_unspecified'])
-        target_cols = [
-            'target_gender_men',
-            'target_gender_non_binary',
-            'target_gender_transgender',
-            'target_gender_women']
-        targets = targets[['comment_id'] + target_cols]
+    if group == 'race' or group == 'gender':
+        targets, target_cols = grab_subgroup_cols(data, group)
+    elif group == 'race_gender':
+        targets1, target_cols1 = grab_subgroup_cols(data, 'race')
+        targets2, target_cols2 = grab_subgroup_cols(data, 'gender')
+        targets = targets1.merge(right=targets2, how='left', on='comment_id')
+        target_cols = target_cols1 + target_cols2
 
     # Calculate fraction of annotators agreement on target
     agreement = targets.groupby('comment_id'
@@ -116,4 +143,4 @@ def load_subgroup(data_path, group, threshold=0.5, text_col='predict_text'):
     # Assign labels (hard or soft labels)
     y_soft = [agreement[col].values[..., np.newaxis] for col in target_cols]
     y_hard = [hard[col].values[..., np.newaxis] for col in target_cols]
-    return data, x, y_hard, y_soft
+    return data, x, y_hard, y_soft, target_cols

@@ -55,7 +55,7 @@ text_col = 'predict_text'
 threshold = args.threshold
 
 # Read in data
-data, x, y_hard, y_soft = load_subgroup(args.data_path, group=args.subgroup)
+data, x, y_hard, y_soft, target_cols = load_subgroup(args.data_path, group=args.subgroup)
 
 if args.soft:
     y_true = y_soft
@@ -83,7 +83,7 @@ if model == "distilbert-base-uncased":
     inputs = tokenizer(x.tolist(), return_tensors='np', padding=True)
     model_builder = classifiers.MultiBinaryClassifier.build_model
     model_kwargs = {
-        'outputs': sorted(keys.target_race_cols),
+        'outputs': target_cols,
         'transformer': model,
         'max_length': inputs['input_ids'].shape[1],
         'n_dense': args.n_dense,
@@ -95,7 +95,7 @@ elif model == "bert-base-uncased":
     inputs = [tokens['input_ids'], tokens['attention_mask']]
     model_builder = classifiers.MultiBinaryClassifier.build_model
     model_kwargs = {
-        'outputs': sorted(keys.target_race_cols),
+        'outputs': target_cols,
         'transformer': model,
         'max_length': tokens['input_ids'].shape[1],
         'n_dense': args.n_dense,
