@@ -144,3 +144,44 @@ def load_subgroup(data_path, group, threshold=0.5, text_col='predict_text'):
     y_soft = [agreement[col].values[..., np.newaxis] for col in target_cols]
     y_hard = [hard[col].values[..., np.newaxis] for col in target_cols]
     return data, x, y_hard, y_soft, target_cols
+
+
+def filter_missing_items(data, columns=keys.items):
+    """Filters the hate speech dataset according to missing data in the survey
+    items.
+    Parameters
+    ----------
+    data : pd.DataFrame
+        Hate speech dataset.
+    Returns
+    -------
+    data : pd.DataFrame
+        Hate speech dataset with rows that contain a missing item removed.
+    """
+    types = {col: 'int64' for col in columns}
+    return data[~data[columns].isna().any(axis=1)].astype(types)
+
+
+def filter_annotator_quality(
+    data, annotator_quality, annotator_col='labeler_id', quality_col='quality_check'
+):
+    """Filters the hate speech dataset according to rater quality.
+    Parameters
+    ----------
+    data : pd.DataFrame
+        Hate speech dataset.
+    annotator_quality : pd.DataFrame
+        A dataframe containing two columns: one with the annotator ID, and the
+        other with a bool indicating whether the annotator is a quality annotator,
+        or not.
+    annotator_col : string
+        The column denoting the annotator ID.
+    quality_col : string
+        The column denoting the quality flag.
+    Returns
+    -------
+    data : pd.DataFrame
+        Hate speech dataset with rows that only contain quality annotators.
+    """
+    quality_annotators = annotator_quality[annotator_quality[quality_col]][annotator_col].values
+    return data[data[annotator_col].isin(quality_annotators)]
