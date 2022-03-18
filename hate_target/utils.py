@@ -125,9 +125,9 @@ def cv_accuracy_by_chance(y_true, y_pred, train_idxs, test_idxs, threshold=0.5):
 
     for idx, (train_idx, test_idx) in enumerate(zip(train_idxs, test_idxs)):
         # Obtain train and test samples
-        y_true_train = y_true[train_idx]
-        y_true_test = y_true[test_idx]
-        y_pred_test = (y_pred[test_idx] >= threshold).astype('int')
+        y_true_train = y_true[train_idx].ravel()
+        y_true_test = y_true[test_idx].ravel()
+        y_pred_test = (y_pred[test_idx] >= threshold).astype('int').ravel()
         # Calculate chance
         p_train = y_true_train.mean()
         p_test = y_true_test.mean()
@@ -166,9 +166,9 @@ def cv_log_odds_difference(y_true, y_pred, train_idxs, test_idxs, threshold=0.5)
 
     for idx, (train_idx, test_idx) in enumerate(zip(train_idxs, test_idxs)):
         # Obtain train and test samples
-        y_true_train = y_true[train_idx]
-        y_true_test = y_true[test_idx]
-        y_pred_test = (y_pred[test_idx] >= threshold).astype('int')
+        y_true_train = y_true[train_idx].ravel()
+        y_true_test = y_true[test_idx].ravel()
+        y_pred_test = (y_pred[test_idx] >= threshold).astype('int').ravel()
         # Calculate chance
         p_train = y_true_train.mean()
         p_test = y_true_test.mean()
@@ -876,4 +876,3 @@ def memory_friendly_helper(
         print('Saving weights.')
         model.save_weights(save)
     print('Exiting process.')
-

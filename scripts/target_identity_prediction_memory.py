@@ -8,12 +8,14 @@ import transformers
 
 from hate_measure.nn import classifiers
 from hate_target.utils import cv_wrapper_memory_friendly
-from hate_target import keys
+from hate_target import datasets, keys
 from tensorflow.keras.optimizers import Adam
 
 # Command line arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('--data_path', type=str)
+parser.add_argument('--rater_quality_path', type=str)
+parser.add_argument('--filter_items', action='store_true')
 parser.add_argument('--save_folder', type=str)
 parser.add_argument('--save_name', type=str)
 parser.add_argument('--verbose', action='store_true')
@@ -44,6 +46,12 @@ model_file = os.path.join(args.save_folder, args.save_name + '_model.h5')
 # Read in data
 print('Reading in data.')
 data = pd.read_feather(args.data_path)
+# Performing filtering and rater quality checks
+if args.filter_items:
+    data = datasets.filter_missing_items(data)
+if args.rater_quality_path is not None:
+    rater_quality = pd.read_csv(args.rater_quality_path)
+    data = datasets.filter_annotator_quality(data, rater_quality)
 comments = data[[comment_id, text_col]].drop_duplicates().sort_values(comment_id)
 # Determine target identities
 agreement = data[[comment_id] + keys.target_groups].groupby(comment_id).agg('mean')
