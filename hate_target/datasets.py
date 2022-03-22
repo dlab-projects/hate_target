@@ -5,7 +5,9 @@ from . import keys
 from .utils import preprocess
 
 
-def load_gab_hate_corpus(path):
+def load_gab_hate_corpus(
+    path, merge_idl_pol=True, fillna=False, min_annotators=1, threshold=0.5
+):
     """Loads the GAB Hate Corpus.
     
     Parameters
@@ -23,8 +25,13 @@ def load_gab_hate_corpus(path):
     """
     gab = pd.read_csv(path, delimiter='\t')
     # Assign either ideology or politics to a common label
-    gab['IDL_POL'] = ((gab['IDL'] == 1) | (gab['POL'] == 1)).astype('int')
-    # Rename columns    
+    if merge_idl_pol:
+        gab['IDL_POL'] = ((gab['IDL'] == 1) | (gab['POL'] == 1)).astype('int')
+        pol_col = 'IDL_POL'
+    else:
+        pol_col = 'POL'
+
+    # Rename columns
     gab = gab.rename({
         'ID': 'comment_id',
         'Annotator': 'labeler_id',
@@ -34,7 +41,7 @@ def load_gab_hate_corpus(path):
         'SXO': 'target_sexuality',
         'GEN': 'target_gender',
         'NAT': 'target_origin',
-        'IDL_POL': 'target_politics',
+        pol_col: 'target_politics',
         'MPH': 'target_disability'}, axis=1)
     # Obtain target columns
     target_cols = sorted([col for col in gab.columns if 'target' in col])
@@ -43,9 +50,19 @@ def load_gab_hate_corpus(path):
     # Obtain unique comments
     comments = gab[['comment_id', 'text']].drop_duplicates().sort_values('comment_id')
     # Obtain valid annotations
-    annotations = gab[~gab[target_cols].isna().any(axis=1)]
+    if fillna:
+        annotations = gab[['comment_id'] + target_cols].fillna(0).copy()
+    else:
+        annotations = gab[~gab[target_cols].isna().any(axis=1)].copy()
+    # Get comments which have a minimum number of annotations
+    comment_counts = annotations['comment_id'].value_counts()
+    annotations = annotations[
+        annotations['comment_id'].isin(
+            comment_counts[comment_counts >= min_annotators].index
+        )]
+    # Calculate annotator agreement
     agreement = annotations[['comment_id'] + target_cols].groupby('comment_id').agg('mean')
-    is_target = (agreement >= 0.5).astype('int'
+    is_target = (agreement >= threshold).astype('int'
         ).reset_index(level=0
         ).merge(right=comments, how='left')
     is_target = is_target[['comment_id', 'text'] + target_cols]
@@ -90,6 +107,37 @@ def grab_subgroup_cols(data, subgroup):
             'target_gender_women']
         targets = targets[['comment_id'] + target_cols]
     return targets, target_cols
+
+
+def load_measuring_hate_groups(
+    data_path, threshold=0.5, text_col='predict_text',
+    comment_id_col='comment_id', rater_quality_path=None,
+    target_cols=keys.target_groups
+):
+    # Load dataset
+    data = pd.read_feather(data_path)
+    # Performing filtering and rater quality checks
+    if rater_quality_path is not None:
+        rater_quality = pd.read_csv(rater_quality_path)
+        data = filter_annotator_quality(data, rater_quality)
+    # Get unique comments
+    comments = data[[comment_id_col, text_col]].drop_duplicates().sort_values(comment_id_col)
+    # Determine agreement among annotators
+    agreement = data[[comment_id_col] + sorted(target_cols)].groupby(comment_id_col).agg('mean')
+    is_target = (
+        agreement >= threshold
+        ).astype('int'
+        ).reset_index(level=0
+        ).merge(right=comments,
+                how='left')
+    # Extract data for training models
+    x = is_target[text_col].values
+    identities = is_target[sorted(target_cols)]
+    # Assign labels (hard or soft labels)
+    y_soft = [agreement[col].values[..., np.newaxis] for col in identities]
+    y_hard = [identities[col].values.astype('int')[..., np.newaxis] for col in identities]
+    return data, x, y_hard, y_soft
+
 
 
 def load_subgroup(data_path, group, threshold=0.5, text_col='predict_text'):

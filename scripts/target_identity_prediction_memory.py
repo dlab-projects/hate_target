@@ -145,21 +145,21 @@ compile_kwargs = {
 # Run cross-validation using Universal Sentence Encoder
 print('Launching CV function.')
 cv_results = cv_wrapper_memory_friendly(
-        x=inputs,
-        y=y_true,
-        model_builder=model_builder,
-        model_kwargs=model_kwargs,
-        compile_kwargs=compile_kwargs,
-        batch_size=args.batch_size,
-        max_epochs=args.max_epochs,
-        n_folds=args.n_folds,
-        val_frac=args.val_frac,
-        refit=True,
-        unwrap_predictions=True,
-        callbacks=[callback],
-        sample_weights=sample_weights,
-        cv_verbose=True,
-        save=model_file)
+    x=inputs,
+    y=y_true,
+    model_builder=model_builder,
+    model_kwargs=model_kwargs,
+    compile_kwargs=compile_kwargs,
+    batch_size=args.batch_size,
+    max_epochs=args.max_epochs,
+    n_folds=args.n_folds,
+    val_frac=args.val_frac,
+    refit=True,
+    unwrap_predictions=True,
+    callbacks=[callback],
+    sample_weights=sample_weights,
+    cv_verbose=True,
+    save=model_file)
 
 exp_file = os.path.join(args.save_folder, args.save_name + '.pkl')
 results = {
