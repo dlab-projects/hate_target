@@ -7,12 +7,16 @@ import tensorflow as tf
 
 from arrayqueues.shared_arrays import ArrayQueue
 from sklearn.model_selection import KFold, ShuffleSplit
-from sklearn.metrics import roc_auc_score, average_precision_score
+from sklearn.metrics import (roc_auc_score,
+                             average_precision_score,
+                             f1_score,
+                             precision_score,
+                             recall_score)
 from tensorflow.keras.optimizers import Adam
 from textacy import preprocessing as pp
 
 
-def analyze_experiment(path, soft=False, verbose=True):
+def analyze_experiment(path, soft=False, verbose=True, thresholds=None):
     """Analyze target identity experiment results.
 
     Parameters
@@ -36,19 +40,35 @@ def analyze_experiment(path, soft=False, verbose=True):
     else:
         y_true = results['y_true']
     y_pred = results['y_pred']
+    if thresholds is None:
+        thresholds = 0.5 * np.ones(len(y_pred))
+    y_hard = [(y >= threshold).astype('int')
+              for y, threshold in zip(y_pred, thresholds)]
     train_idxs = results['train_idxs']
     test_idxs = results['test_idxs']
 
     overall_loss = test_scores[:, 0]
     label_loss = test_scores[:, 1:]
+
+    accuracy = cv_multilabel_accuracy_by_chance(
+        y_true, y_pred, train_idxs, test_idxs, choice='accuracy')
+    chance = cv_multilabel_accuracy_by_chance(
+        y_true, y_pred, train_idxs, test_idxs, choice='chance')
     accuracy_by_chance = cv_multilabel_accuracy_by_chance(
-        y_true, y_pred, train_idxs, test_idxs)
+        y_true, y_pred, train_idxs, test_idxs, choice='accuracy_by_chance')
     log_odds_difference = cv_multilabel_log_odds_difference(
         y_true, y_pred, train_idxs, test_idxs)
     roc_aucs = cv_multilabel_metric(
         y_true, y_pred, test_idxs, 'roc_auc')
     pr_aucs = cv_multilabel_metric(
         y_true, y_pred, test_idxs, 'pr_auc')
+    f1_scores = cv_multilabel_metric(
+        y_true, y_hard, test_idxs, 'f1_score')
+    precision_scores = cv_multilabel_metric(
+        y_true, y_hard, test_idxs, 'precision')
+    recall_scores = cv_multilabel_metric(
+        y_true, y_hard, test_idxs, 'recall')
+    incidence_rate = np.array([np.mean(y) for y in y_hard])
 
     if verbose:
         print(f"Overall loss: {overall_loss.mean():0.4f}")
@@ -57,15 +77,23 @@ def analyze_experiment(path, soft=False, verbose=True):
         print(f"Log-odds difference: {log_odds_difference.mean():0.4}")
         print(f"ROC AUC: {roc_aucs.mean():0.4f}")
         print(f"PR AUC: {pr_aucs.mean():0.4f}")
+        print(f"F1-score: {f1_scores.mean():0.4f}")
+        print(f"Precision: {precision_scores.mean():0.4f}")
+        print(f"Recall: {recall_scores.mean():0.4f}")
 
     analysis = {
         'overall_loss': overall_loss,
         'label_loss': label_loss,
+        'accuracy': accuracy,
+        'chance': chance,
         'accuracy_by_chance': accuracy_by_chance,
         'log_odds_difference': log_odds_difference.T,
         'roc_aucs': roc_aucs.T,
-        'pr_aucs': pr_aucs.T
-    }
+        'pr_aucs': pr_aucs.T,
+        'f1_scores': f1_scores.T,
+        'precision': precision_scores.T,
+        'recall': recall_scores.T,
+        'incidence_rate': incidence_rate}
     return analysis
 
 
@@ -97,7 +125,9 @@ def log_odds_difference(accuracy, chance):
     return np.log(accuracy / (1 - accuracy)) - np.log(chance / (1 - chance))
 
 
-def cv_accuracy_by_chance(y_true, y_pred, train_idxs, test_idxs, threshold=0.5):
+def cv_accuracy_by_chance(
+    y_true, y_pred, train_idxs, test_idxs, threshold=0.5, choice='accuracy_by_chance'
+):
     """Calculates the accuracy by chance over CV folds.
 
     Parameters
@@ -121,7 +151,7 @@ def cv_accuracy_by_chance(y_true, y_pred, train_idxs, test_idxs, threshold=0.5):
         An array with the accuracy by chance on each fold.
     """
     n_folds = len(train_idxs)
-    accuracy_by_chances = np.zeros(n_folds)
+    metric = np.zeros(n_folds)
 
     for idx, (train_idx, test_idx) in enumerate(zip(train_idxs, test_idxs)):
         # Obtain train and test samples
@@ -135,9 +165,14 @@ def cv_accuracy_by_chance(y_true, y_pred, train_idxs, test_idxs, threshold=0.5):
         # Calculate accuracy
         accuracy = np.mean(y_pred_test == y_true_test)
         # Accuracy over chance
-        accuracy_by_chances[idx] = accuracy / chance
+        if choice == 'accuracy_by_chance':
+            metric[idx] = accuracy / chance
+        elif choice == 'accuracy':
+            metric[idx] = accuracy
+        elif choice == 'chance':
+            metric[idx] = chance
 
-    return accuracy_by_chances
+    return metric
 
 def cv_log_odds_difference(y_true, y_pred, train_idxs, test_idxs, threshold=0.5):
     """Calculates the log-odds difference over CV folds.
@@ -180,7 +215,9 @@ def cv_log_odds_difference(y_true, y_pred, train_idxs, test_idxs, threshold=0.5)
 
     return log_odds_differences
 
-def cv_multilabel_accuracy_by_chance(y_true, y_pred, train_idxs, test_idxs, threshold=0.5):
+def cv_multilabel_accuracy_by_chance(
+    y_true, y_pred, train_idxs, test_idxs, threshold=0.5, choice='accuracy_by_chance'
+):
     """Calculates the accuracy by chance over CV folds and labels.
 
     Parameters
@@ -211,7 +248,8 @@ def cv_multilabel_accuracy_by_chance(y_true, y_pred, train_idxs, test_idxs, thre
                                y_pred[label],
                                train_idxs,
                                test_idxs,
-                               threshold=threshold)
+                               threshold=threshold,
+                               choice=choice)
          for label in range(n_labels)]
     )
     return accuracy_by_chances.T
@@ -311,6 +349,12 @@ def cv_multilabel_metric(y_true, y_pred, test_idxs, metric='roc_auc'):
         metric_fn = roc_auc_score
     elif metric == 'pr_auc':
         metric_fn = average_precision_score
+    elif metric == 'f1_score':
+        metric_fn = f1_score
+    elif metric == 'precision':
+        metric_fn = precision_score
+    elif metric == 'recall':
+        metric_fn = recall_score
     else:
         raise ValueError(f'Metric "{metric}" not available.')
 
