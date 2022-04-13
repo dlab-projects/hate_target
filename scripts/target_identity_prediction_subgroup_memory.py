@@ -72,7 +72,7 @@ callback = tf.keras.callbacks.EarlyStopping(
 model = args.model
 if model == 'use_v4':
     inputs = [x]
-    model_builder = classifiers.TargetIdentityClassifierUSE.build_model
+    model_builder = classifiers.MultiBinaryClassifier.build_model
     model_kwargs = {
         'n_dense': args.n_dense,
         'version': 'v4',
@@ -80,7 +80,7 @@ if model == 'use_v4':
     }
 elif model == 'use_v5':
     inputs = [x]
-    model_builder = classifiers.TargetIdentityClassifierUSE.build_model
+    model_builder = classifiers.MultiBinaryClassifier.build_model
     model_kwargs = {
         'n_dense': args.n_dense,
         'version': 'v5',
@@ -89,8 +89,9 @@ elif model == 'use_v5':
 elif model == "distilbert-base-uncased":
     tokenizer = transformers.DistilBertTokenizer.from_pretrained(model)
     inputs = tokenizer(x.tolist(), return_tensors='np', padding=True)
-    model_builder = classifiers.TargetIdentityClassifier.build_model
+    model_builder = classifiers.MultiBinaryClassifier.build_model
     model_kwargs = {
+        'outputs': target_cols,
         'transformer': model,
         'max_length': inputs['input_ids'].shape[1],
         'n_dense': args.n_dense,
@@ -100,8 +101,9 @@ elif model == "bert-base-uncased":
     tokenizer = transformers.BertTokenizer.from_pretrained(model)
     tokens = tokenizer(x.tolist(), return_tensors='np', padding=True)
     inputs = [tokens['input_ids'], tokens['attention_mask']]
-    model_builder = classifiers.TargetIdentityClassifier.build_model
+    model_builder = classifiers.MultiBinaryClassifier.build_model
     model_kwargs = {
+        'outputs': target_cols,
         'transformer': model,
         'max_length': tokens['input_ids'].shape[1],
         'n_dense': args.n_dense,
@@ -113,8 +115,9 @@ elif model == 'roberta-base':
     tokenizer = transformers.RobertaTokenizer.from_pretrained("roberta-base")
     tokens = tokenizer(x.tolist(), return_tensors='np', padding=True)
     inputs = [tokens['input_ids'], tokens['attention_mask']]
-    model_builder = classifiers.TargetIdentityClassifier.build_model
+    model_builder = classifiers.MultiBinaryClassifier.build_model
     model_kwargs = {
+        'outputs': target_cols,
         'transformer': model,
         'max_length': tokens['input_ids'].shape[1],
         'n_dense': args.n_dense,
@@ -126,8 +129,9 @@ elif model == 'roberta-large':
     tokenizer = transformers.RobertaTokenizer.from_pretrained("roberta-large")
     tokens = tokenizer(x.tolist(), return_tensors='np', padding=True)
     inputs = [tokens['input_ids'], tokens['attention_mask']]
-    model_builder = classifiers.TargetIdentityClassifier.build_model
+    model_builder = classifiers.MultiBinaryClassifier.build_model
     model_kwargs = {
+        'outputs': target_cols,
         'transformer': model,
         'max_length': tokens['input_ids'].shape[1],
         'n_dense': args.n_dense,
