@@ -10,9 +10,9 @@ tf.config.experimental.set_visible_devices(gpu, 'GPU')
 tf.config.experimental.set_memory_growth(gpu, True)
 
 token_path = "/home/psachdeva/data/twitter_tokenized.h5"
-weights_path = '/home/psachdeva/experiments/target_gender/exp01d_model.h5'
-save_path = "predictions.h5"
-batch_size = 256
+weights_path = '/home/psachdeva/experiments/target_gender/gender_exp01e_model.h5'
+save_path = "/home/psachdeva/data/gender_twitter_predictions.h5"
+batch_size = 8
 
 print('Reading in tokens...')
 with h5py.File(token_path, 'r') as file:
@@ -45,5 +45,5 @@ y_pred = model.predict(
     verbose=1)
 
 print('Saving predictions...')
-with h5py.File('y_pred_gender.h5', 'w') as file:
+with h5py.File(save_path, 'w') as file:
     file['y_pred'] = np.squeeze(np.array(y_pred)).T
