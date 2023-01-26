@@ -56,10 +56,10 @@ git clone git@github.com:dlab-projects/hate_target.git
 ```
 
 Navigate to the cloned folder on your local machine. Then, create a new Anaconda
-environment with the `requirements.txt` file:
+environment with the `environment.yml` file:
 
 ```
-conda env  --name <env_name> --file requirements.txt
+conda env create -f environment.yml
 ```
 
 Finally, install an editable version of this package using `pip`. Be sure to run
